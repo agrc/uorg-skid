@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 """
 setup.py
-A module that installs projectname as a module
+A module that installs the UORG skid as a module
 """
 from glob import glob
 from os.path import basename, splitext
@@ -11,17 +11,17 @@ from setuptools import find_packages, setup
 
 #: Load version from source file
 version = {}
-with open('src/projectname/version.py') as fp:
+with open('src/uorg-skid/version.py') as fp:
     exec(fp.read(), version)
 
 setup(
-    name='projectname',
+    name='uorg-skid',
     version=version['__version__'],
     license='MIT',
-    description='Project description.',
-    author='UGRC',
-    author_email='ugrc@utah.gov',
-    url='https://github.com/agrc/python',
+    description='Update the UORG data from a google sheet via GCF',
+    author='Jake Adams',
+    author_email='jdadams@utah.gov',
+    url='https://github.com/agrc/uorg',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
@@ -38,7 +38,9 @@ setup(
     },
     keywords=['gis'],
     install_requires=[
-        # 'package==1.0.*'
+        'arcgis==1.9.*',
+        'ugrc-palletjack==2.0.*',
+        'agrc-supervisor==3.0.*',
     ],
     extras_require={
         'tests': [
@@ -57,6 +59,6 @@ setup(
         'pytest-runner',
     ],
     entry_points={'console_scripts': [
-        'projectname = projectname.main:main',
+        'projectname = uorg.main:main',
     ]},
 )
