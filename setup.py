@@ -11,7 +11,7 @@ from setuptools import find_packages, setup
 
 #: Load version from source file
 version = {}
-with open('src/uorg-skid/version.py') as fp:
+with open('src/uorg/version.py') as fp:
     exec(fp.read(), version)
 
 setup(
@@ -39,7 +39,7 @@ setup(
     keywords=['gis'],
     install_requires=[
         'arcgis==1.9.*',
-        'ugrc-palletjack==2.0.*',
+        'ugrc-palletjack==2.1.*',
         'agrc-supervisor==3.0.*',
     ],
     extras_require={
