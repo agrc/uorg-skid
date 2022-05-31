@@ -81,30 +81,8 @@ def _initialize(log_path, sendgrid_api_key):
     return skid_supervisor
 
 
-def _build_attachments_dataframe(input_dataframe, join_column, attachment_column, out_dir):
-    #: Create an attachments dataframe by subsetting down to just the two fields and dropping any rows
-    #: with null/empty attachments
-    attachments_dataframe = input_dataframe[[join_column, attachment_column]] \
-                                           .copy().dropna(subset=attachment_column)
-    #: Create the full path by prepending the output directory using .apply and a lambda function
-    attachments_dataframe['full_file_path'] = attachments_dataframe[attachment_column] \
-                                                .apply(lambda filename: str(Path(out_dir, filename)))
-
-    return attachments_dataframe
-
-
 def process():
-    #: Settings and variables
-    #: These would normally go in a secrets file and a config file depending upon exposure risk
-    # sheet_id = ''
-    # attachments_join_field = 'join_field'
-    # attachment_column = 'Picture'
-    # service_account_json = r'c:\foo\bar-sa.json'
-    # out_dir = r'c:\temp\google_python_tests'
-    # agol_org = 'https://utah.maps.arcgis.com'
-    # agol_user = ''
-    # agol_password = ''
-    # feature_layer_itemid = 'agol_item_id'
+
 
     #: Set up secrets, tempdir, supervisor, and logging
     start = datetime.now()
@@ -123,8 +101,10 @@ def process():
     gis = arcgis.gis.GIS(config.AGOL_ORG, secrets.AGOL_USER, secrets.AGOL_PASSWORD)
 
     #: Use a GSheetLoader to load the google sheet into a single dataframe with a column denoting year:
+    module_logger.info('Loading Google Sheet into a single dataframe...')
     gsheetloader = GSheetLoader(secrets.SERVICE_ACCOUNT_JSON)
     worksheets = gsheetloader.load_all_worksheets_into_dataframes(secrets.SHEET_ID)
+
     #: Not being able to load the dataframes is a fatal error and should bomb out.
     try:
         all_worksheets_dataframe = gsheetloader.combine_worksheets_into_single_dataframe(worksheets)
@@ -134,43 +114,24 @@ def process():
         raise
 
     #: Update the feature service attribute values themselves
+    module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
     updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
     number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
         config.FEATURE_LAYER_ITEMID, config.FIELDS
     )
 
-    #: TODO: put most of this in GoogleDriveDownloader, perhaps as a separate download_files_from_dataframe(), leaving
-    #: download_image_from_google_drive() as a public method but calling it from the new method. This would align
-    #: GoogleDriveDownloader to focus on dataframes, like all the other classes. The return would be the dataframe but
-    #: with a new column added containing the output filepath.
-
     #: Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
+    module_logger.info('Downloading attachments from Google Drive...')
     out_dir = tempdir_path / 'pics'
     downloader = GoogleDriveDownloader(out_dir)
-    for row in all_worksheets_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]].itertuples(index=False):
-        #: if the link is an empty string or null, notify the user and don't try to download
-        join_id, attachment_link = row
-        if not attachment_link:
-            module_logger.debug('Row %s has no attachment info', join_id)
-            all_worksheets_dataframe.loc[all_worksheets_dataframe[config.JOIN_COLUMN] == join_id,
-                                         'full_file_path'] = None
-            continue
-        #: Skids are responsible for handling errors. In this case, if it can't access the link, print out the error
-        try:
-            module_logger.debug('Row %s: Downloading attachment from %s', join_id, attachment_link)
-            all_worksheets_dataframe.loc[all_worksheets_dataframe[config.JOIN_COLUMN] == join_id,'full_file_path'] \
-                                        = downloader.download_image_from_google_drive(attachment_link)
-        except RuntimeError as err:
-            module_logger.warning('Row %s: Couldn\'t download %s', join_id, attachment_link)
-            module_logger.warning(err)
-            all_worksheets_dataframe.loc[all_worksheets_dataframe[config.JOIN_COLUMN] == join_id,
-                                         'full_file_path'] = None
-
-    attachments_dataframe = _build_attachments_dataframe(
-        all_worksheets_dataframe, config.JOIN_COLUMN, config.ATTACHMENT_COLUMN, out_dir
+    downloaded_dataframe = downloader.download_attachments_from_dataframe(
+        all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, 'full_file_path'
     )
 
     #: Create our attachment updater and update attachments using the attachments dataframe
+    module_logger.info('Updating Feature Service attachments using downloaded files...')
+    attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
+                                                .copy().dropna(subset=config.ATTACHMENT_COLUMN)
     attachment_updater = FeatureServiceAttachmentsUpdater(gis)
     overwrites, adds = attachment_updater.update_attachments(
         config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, 'full_file_path', attachments_dataframe
@@ -179,9 +140,9 @@ def process():
     end = datetime.now()
 
     summary_message = MessageDetails()
-    summary_message.subject = 'ERAP Update Summary'
+    summary_message.subject = 'UORG Update Summary'
     summary_rows = [
-        f'ERAP update {start.strftime("%Y-%m-%d")}',
+        f'UORG update {start.strftime("%Y-%m-%d")}',
         '=' * 20,
         '',
         f'Start time: {start.strftime("%H:%M:%S")}',
