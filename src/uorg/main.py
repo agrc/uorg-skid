@@ -75,14 +75,15 @@ def _initialize(log_path, sendgrid_api_key):
     sendgrid_settings = config.SENDGRID_SETTINGS
     sendgrid_settings['api_key'] = sendgrid_api_key
     skid_supervisor.add_message_handler(
-        SendGridHandler(sendgrid_settings=sendgrid_settings, client_name='erap', client_version=version.__version__)
+        SendGridHandler(
+            sendgrid_settings=sendgrid_settings, client_name='uorg-skid', client_version=version.__version__
+        )
     )
 
     return skid_supervisor
 
 
 def process():
-
 
     #: Set up secrets, tempdir, supervisor, and logging
     start = datetime.now()
@@ -114,11 +115,11 @@ def process():
         raise
 
     #: Update the feature service attribute values themselves
-    module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
-    updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
-    number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
-        config.FEATURE_LAYER_ITEMID, config.FIELDS
-    )
+    # module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
+    # updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
+    # number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
+    #     config.FEATURE_LAYER_ITEMID, config.FIELDS
+    # )
 
     #: Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
     module_logger.info('Downloading attachments from Google Drive...')
@@ -129,13 +130,13 @@ def process():
     )
 
     #: Create our attachment updater and update attachments using the attachments dataframe
-    module_logger.info('Updating Feature Service attachments using downloaded files...')
-    attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
-                                                .copy().dropna(subset=config.ATTACHMENT_COLUMN)
-    attachment_updater = FeatureServiceAttachmentsUpdater(gis)
-    overwrites, adds = attachment_updater.update_attachments(
-        config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, 'full_file_path', attachments_dataframe
-    )
+    # module_logger.info('Updating Feature Service attachments using downloaded files...')
+    # attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
+    #                                             .copy().dropna(subset=config.ATTACHMENT_COLUMN)
+    # attachment_updater = FeatureServiceAttachmentsUpdater(gis)
+    # overwrites, adds = attachment_updater.update_attachments(
+    #     config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, 'full_file_path', attachments_dataframe
+    # )
 
     end = datetime.now()
 
@@ -148,9 +149,9 @@ def process():
         f'Start time: {start.strftime("%H:%M:%S")}',
         f'End time: {end.strftime("%H:%M:%S")}',
         f'Duration: {str(end-start)}',
-        f'{number_of_rows_updated} rows updated',
-        f'{overwrites} existing attachments overwritten',
-        f'{adds} attachments added where none existed',
+        # f'{number_of_rows_updated} rows updated',
+        # f'{overwrites} existing attachments overwritten',
+        # f'{adds} attachments added where none existed',
     ]
     summary_message.message = '\n'.join(summary_rows)
     summary_message.attachments = tempdir_path / log_name
