@@ -124,6 +124,7 @@ def process():
     #: Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
     module_logger.info('Downloading attachments from Google Drive...')
     out_dir = tempdir_path / 'pics'
+    out_dir.mkdir(exist_ok=True)
     downloader = GoogleDriveDownloader(out_dir)
     downloaded_dataframe = downloader.download_attachments_from_dataframe(
         all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, 'full_file_path'
