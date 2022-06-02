@@ -44,7 +44,7 @@ def _get_secrets():
 
 def _initialize(log_path, sendgrid_api_key):
 
-    skid_logger = logging.getLogger('erap')
+    skid_logger = logging.getLogger('uorg')
     skid_logger.setLevel(config.LOG_LEVEL)
     palletjack_logger = logging.getLogger('palletjack')
     palletjack_logger.setLevel(config.LOG_LEVEL)
@@ -112,23 +112,29 @@ def process():
     except ValueError as error:
         module_logger.error(error)
         module_logger.error('Unable to load Google Sheet into dataframe. Aborting.')
-        raise
+        sys.exit('Aborted due to error. Check logs for more info')
 
     #: Update the feature service attribute values themselves
-    # module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
-    # updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
-    # number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
-    #     config.FEATURE_LAYER_ITEMID, config.FIELDS
-    # )
+    module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
+    updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
+    try:
+        number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
+            config.FEATURE_LAYER_ITEMID, config.FIELDS
+        )
+    except RuntimeError as error:
+        module_logger.error(error)
+        if 'Field mismatch between defined fields and either new or live data.' in error.args[0]:
+            module_logger.error('Field mismatch between data and specified fields. Aborting.')
+        sys.exit('Aborted due to error. Check logs for more info')
 
     #: Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
-    module_logger.info('Downloading attachments from Google Drive...')
-    out_dir = tempdir_path / 'pics'
-    out_dir.mkdir(exist_ok=True)
-    downloader = GoogleDriveDownloader(out_dir)
-    downloaded_dataframe = downloader.download_attachments_from_dataframe(
-        all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, 'full_file_path'
-    )
+    # module_logger.info('Downloading attachments from Google Drive...')
+    # out_dir = tempdir_path / 'pics'
+    # out_dir.mkdir(exist_ok=True)
+    # downloader = GoogleDriveDownloader(out_dir)
+    # downloaded_dataframe = downloader.download_attachments_from_dataframe(
+    #     all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, 'full_file_path'
+    # )
 
     #: Create our attachment updater and update attachments using the attachments dataframe
     # module_logger.info('Updating Feature Service attachments using downloaded files...')
@@ -150,7 +156,7 @@ def process():
         f'Start time: {start.strftime("%H:%M:%S")}',
         f'End time: {end.strftime("%H:%M:%S")}',
         f'Duration: {str(end-start)}',
-        # f'{number_of_rows_updated} rows updated',
+        f'{number_of_rows_updated} rows updated',
         # f'{overwrites} existing attachments overwritten',
         # f'{adds} attachments added where none existed',
     ]
