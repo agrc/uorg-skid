@@ -90,87 +90,85 @@ def process():
 
     secrets = SimpleNamespace(**_get_secrets())
 
-    tempdir = TemporaryDirectory()
-    tempdir_path = Path(tempdir.name)
-    log_name = f'{config.LOG_FILE_NAME}_{start.strftime("%Y%m%d-%H%M%S")}.txt'
-    log_path = tempdir_path / log_name
+    with TemporaryDirectory() as tempdir:
+        tempdir_path = Path(tempdir)
+        log_name = f'{config.LOG_FILE_NAME}_{start.strftime("%Y%m%d-%H%M%S")}.txt'
+        log_path = tempdir_path / log_name
 
-    uorg_supervisor = _initialize(log_path, secrets.SENDGRID_API_KEY)
-    module_logger = logging.getLogger('uorg')
+        uorg_supervisor = _initialize(log_path, secrets.SENDGRID_API_KEY)
+        module_logger = logging.getLogger('uorg')
 
-    #: Get our GIS object via the ArcGIS API for Python
-    gis = arcgis.gis.GIS(config.AGOL_ORG, secrets.AGOL_USER, secrets.AGOL_PASSWORD)
+        #: Get our GIS object via the ArcGIS API for Python
+        gis = arcgis.gis.GIS(config.AGOL_ORG, secrets.AGOL_USER, secrets.AGOL_PASSWORD)
 
-    #: Use a GSheetLoader to load the google sheet into a single dataframe with a column denoting year:
-    module_logger.info('Loading Google Sheet into a single dataframe...')
-    gsheetloader = GSheetLoader(secrets.SERVICE_ACCOUNT_JSON)
-    worksheets = gsheetloader.load_all_worksheets_into_dataframes(secrets.SHEET_ID)
+        #: Use a GSheetLoader to load the google sheet into a single dataframe with a column denoting year:
+        module_logger.info('Loading Google Sheet into a single dataframe...')
+        gsheetloader = GSheetLoader(secrets.SERVICE_ACCOUNT_JSON)
+        worksheets = gsheetloader.load_all_worksheets_into_dataframes(secrets.SHEET_ID)
 
-    #: Not being able to load the dataframes is a fatal error and should bomb out.
-    try:
-        all_worksheets_dataframe = gsheetloader.combine_worksheets_into_single_dataframe(worksheets)
-    except ValueError as error:
-        module_logger.error(error)
-        module_logger.error('Unable to load Google Sheet into dataframe. Aborting.')
-        sys.exit('Aborted due to error. Check logs for more info')
+        #: Not being able to load the dataframes is a fatal error and should bomb out.
+        try:
+            all_worksheets_dataframe = gsheetloader.combine_worksheets_into_single_dataframe(worksheets)
+        except ValueError as error:
+            module_logger.error(error)
+            module_logger.error('Unable to load Google Sheet into dataframe. Aborting.')
+            sys.exit('Aborted due to error. Check logs for more info')
 
-    #: Update the feature service attribute values themselves
-    module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
-    updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
-    try:
-        number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
-            config.FEATURE_LAYER_ITEMID, config.FIELDS
+        #: Rename fields from live dataframe to match AGOL fields
+        all_worksheets_dataframe.rename(columns=config.FIELDS, inplace=True)
+
+        #: Update the feature service attribute values themselves
+        module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
+        updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
+        try:
+            number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
+                config.FEATURE_LAYER_ITEMID, list(config.FIELDS.values())
+            )
+        except RuntimeError as error:
+            module_logger.error(error)
+            if 'Field mismatch between defined fields and either new or live data.' in error.args[0]:
+                module_logger.error('Field mismatch between data and specified fields. Aborting.')
+            sys.exit('Aborted due to error. Check logs for more info')
+
+        # : Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
+        module_logger.info('Downloading attachments from Google Drive...')
+        out_dir = tempdir_path / 'pics'
+        out_dir.mkdir(exist_ok=True)
+        downloader = GoogleDriveDownloader(out_dir)
+        downloaded_dataframe = downloader.download_attachments_from_dataframe(
+            all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_COLUMN
         )
-    except RuntimeError as error:
-        module_logger.error(error)
-        if 'Field mismatch between defined fields and either new or live data.' in error.args[0]:
-            module_logger.error('Field mismatch between data and specified fields. Aborting.')
-        sys.exit('Aborted due to error. Check logs for more info')
+        # downloaded_dataframe = all_worksheets_dataframe.copy()
+        # downloaded_dataframe[config.ATTACHMENT_COLUMN] = None
 
-    #: Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
-    # module_logger.info('Downloading attachments from Google Drive...')
-    # out_dir = tempdir_path / 'pics'
-    # out_dir.mkdir(exist_ok=True)
-    # downloader = GoogleDriveDownloader(out_dir)
-    # downloaded_dataframe = downloader.download_attachments_from_dataframe(
-    #     all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, 'full_file_path'
-    # )
+        # : Create our attachment updater and update attachments using the attachments dataframe
+        module_logger.info('Updating Feature Service attachments using downloaded files...')
+        attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
+                                                    .copy().dropna(subset=[config.ATTACHMENT_COLUMN])
+        attachment_updater = FeatureServiceAttachmentsUpdater(gis)
+        overwrites, adds = attachment_updater.update_attachments(
+            config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, config.ATTACHMENT_COLUMN, attachments_dataframe
+        )
 
-    #: Create our attachment updater and update attachments using the attachments dataframe
-    # module_logger.info('Updating Feature Service attachments using downloaded files...')
-    # attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
-    #                                             .copy().dropna(subset=config.ATTACHMENT_COLUMN)
-    # attachment_updater = FeatureServiceAttachmentsUpdater(gis)
-    # overwrites, adds = attachment_updater.update_attachments(
-    #     config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, 'full_file_path', attachments_dataframe
-    # )
+        end = datetime.now()
 
-    end = datetime.now()
+        summary_message = MessageDetails()
+        summary_message.subject = 'UORG Update Summary'
+        summary_rows = [
+            f'UORG update {start.strftime("%Y-%m-%d")}',
+            '=' * 20,
+            '',
+            f'Start time: {start.strftime("%H:%M:%S")}',
+            f'End time: {end.strftime("%H:%M:%S")}',
+            f'Duration: {str(end-start)}',
+            f'{number_of_rows_updated} rows updated',
+            f'{overwrites} existing attachments overwritten',
+            f'{adds} attachments added where none existed',
+        ]
+        summary_message.message = '\n'.join(summary_rows)
+        summary_message.attachments = tempdir_path / log_name
 
-    summary_message = MessageDetails()
-    summary_message.subject = 'UORG Update Summary'
-    summary_rows = [
-        f'UORG update {start.strftime("%Y-%m-%d")}',
-        '=' * 20,
-        '',
-        f'Start time: {start.strftime("%H:%M:%S")}',
-        f'End time: {end.strftime("%H:%M:%S")}',
-        f'Duration: {str(end-start)}',
-        f'{number_of_rows_updated} rows updated',
-        # f'{overwrites} existing attachments overwritten',
-        # f'{adds} attachments added where none existed',
-    ]
-    summary_message.message = '\n'.join(summary_rows)
-    summary_message.attachments = tempdir_path / log_name
-
-    uorg_supervisor.notify(summary_message)
-
-    #: Try to clean up the tempdir (we don't use a context manager); log any errors as a heads up
-    #: This dir shouldn't persist between cloud function calls, but in case it does, we try to clean it up
-    try:
-        tempdir.cleanup()
-    except Exception as error:
-        module_logger.error(error)
+        uorg_supervisor.notify(summary_message)
 
 
 def main(event, context):  # pylint: disable=unused-argument

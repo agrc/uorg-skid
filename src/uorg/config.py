@@ -17,16 +17,16 @@ LOG_FILE_NAME = 'log'
 
 FEATURE_LAYER_ITEMID = '4d179d4fc3d745dcad0e91bf4e3dc390'
 JOIN_COLUMN = 'ID'
-ATTACHMENT_COLUMN = 'Picture'
-FIELDS = [
-    'Year',
-    'ID',
-    'Project_Title',
-    'Organization',
-    'County',
-    'Long',
-    'Lat',
-    'Description',
-    'Link_to_',
-    'Picture',
-]
+ATTACHMENT_COLUMN = 'full_file_path'
+FIELDS = {
+    'worksheet': 'Year',
+    'ID': 'ID',
+    'Project Title': 'Project_Title',
+    'Organization': 'Organization',
+    'County': 'County',
+    'Long': 'Long',
+    'Lat': 'Lat',
+    'Description': 'Description',
+    'Link to:': 'Link_to_',
+    'Picture': 'Picture',
+}
