@@ -170,6 +170,18 @@ def process():
 
         uorg_supervisor.notify(summary_message)
 
+        #: Remove file handler so the tempdir will close properly
+        # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        loggers = [logging.getLogger('uorg'), logging.getLogger('palletjack')]
+        for logger in loggers:
+            for handler in logger.handlers:
+                try:
+                    if log_name in handler.stream.name:
+                        logger.removeHandler(handler)
+                        handler.close()
+                except Exception as error:
+                    pass
+
 
 def main(event, context):  # pylint: disable=unused-argument
     """Entry point for Google Cloud Function triggered by pub/sub event
