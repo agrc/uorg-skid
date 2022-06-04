@@ -16,11 +16,11 @@ LOG_LEVEL = logging.DEBUG
 LOG_FILE_NAME = 'log'
 
 FEATURE_LAYER_ITEMID = '4d179d4fc3d745dcad0e91bf4e3dc390'
-JOIN_COLUMN = 'ID'
+JOIN_COLUMN = 'GrantID'
 ATTACHMENT_COLUMN = 'full_file_path'
 FIELDS = {
     'worksheet': 'Year',
-    'ID': 'ID',
+    'GrantID': 'GrantID',
     'Project Title': 'Project_Title',
     'Organization': 'Organization',
     'County': 'County',
