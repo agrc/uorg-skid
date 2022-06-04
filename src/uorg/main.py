@@ -136,18 +136,18 @@ def process():
         out_dir.mkdir(exist_ok=True)
         downloader = GoogleDriveDownloader(out_dir)
         downloaded_dataframe = downloader.download_attachments_from_dataframe(
-            all_worksheets_dataframe, config.ATTACHMENT_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_COLUMN
+            all_worksheets_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN
         )
         # downloaded_dataframe = all_worksheets_dataframe.copy()
-        # downloaded_dataframe[config.ATTACHMENT_COLUMN] = None
+        # downloaded_dataframe[config.ATTACHMENT_PATH_COLUMN] = None
 
         # : Create our attachment updater and update attachments using the attachments dataframe
         module_logger.info('Updating Feature Service attachments using downloaded files...')
-        attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_COLUMN]] \
-                                                    .copy().dropna(subset=[config.ATTACHMENT_COLUMN])
+        attachments_dataframe = downloaded_dataframe[[config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN]] \
+                                                    .copy().dropna(subset=[config.ATTACHMENT_PATH_COLUMN])
         attachment_updater = FeatureServiceAttachmentsUpdater(gis)
         overwrites, adds = attachment_updater.update_attachments(
-            config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, config.ATTACHMENT_COLUMN, attachments_dataframe
+            config.FEATURE_LAYER_ITEMID, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN, attachments_dataframe
         )
 
         end = datetime.now()
