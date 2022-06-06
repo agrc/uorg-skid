@@ -17,7 +17,8 @@ LOG_FILE_NAME = 'log'
 
 FEATURE_LAYER_ITEMID = '4d179d4fc3d745dcad0e91bf4e3dc390'
 JOIN_COLUMN = 'GrantID'
-ATTACHMENT_COLUMN = 'full_file_path'
+ATTACHMENT_LINK_COLUMN = 'Picture'
+ATTACHMENT_PATH_COLUMN = 'full_file_path'
 FIELDS = {
     'worksheet': 'Year',
     'GrantID': 'GrantID',

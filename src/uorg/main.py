@@ -138,8 +138,6 @@ def process():
         downloaded_dataframe = downloader.download_attachments_from_dataframe(
             all_worksheets_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN
         )
-        # downloaded_dataframe = all_worksheets_dataframe.copy()
-        # downloaded_dataframe[config.ATTACHMENT_PATH_COLUMN] = None
 
         # : Create our attachment updater and update attachments using the attachments dataframe
         module_logger.info('Updating Feature Service attachments using downloaded files...')
@@ -165,6 +163,10 @@ def process():
             f'{overwrites} existing attachments overwritten',
             f'{adds} attachments added where none existed',
         ]
+        if attachment_updater.failed_dict:
+            failed_list = [f'\tOID {key}: {value}' for key, value in attachment_updater.failed_dict.items()]
+            summary_rows.append(f'{len(failed_list)} attachment(s) failed to update:')
+            summary_rows.extend(failed_list)
         summary_message.message = '\n'.join(summary_rows)
         summary_message.attachments = tempdir_path / log_name
 

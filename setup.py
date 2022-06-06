@@ -38,9 +38,9 @@ setup(
     },
     keywords=['gis'],
     install_requires=[
-        'arcgis==1.9.*',
-        'ugrc-palletjack==2.1.*',
-        'agrc-supervisor==3.0.*',
+        'arcgis',  #==1.9.*',
+        'ugrc-palletjack',  #==2.2.*',
+        'agrc-supervisor',  #==3.0.*',
     ],
     extras_require={
         'tests': [
@@ -59,6 +59,6 @@ setup(
         'pytest-runner',
     ],
     entry_points={'console_scripts': [
-        'projectname = uorg.main:main',
+        'uorg = uorg.main:main',
     ]},
 )
