@@ -38,9 +38,9 @@ setup(
     },
     keywords=['gis'],
     install_requires=[
-        'arcgis',  #==1.9.*',
-        'ugrc-palletjack',  #==2.2.*',
-        'agrc-supervisor',  #==3.0.*',
+        'arcgis==1.9.*',
+        'ugrc-palletjack==2.4.*',
+        'agrc-supervisor==3.0.*',
     ],
     extras_require={
         'tests': [
@@ -53,6 +53,7 @@ setup(
             'pytest-watch~=4.2',
             'pytest~=6.0',
             'yapf~=0.31',
+            'pytest-mock==3.2.*',
         ]
     },
     setup_requires=[

@@ -12,6 +12,8 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 import arcgis
+import pandas as pd
+from arcgis.features import GeoAccessor, GeoSeriesAccessor
 from palletjack import (
     FeatureServiceAttachmentsUpdater, FeatureServiceInlineUpdater, GoogleDriveDownloader, GSheetLoader
 )
@@ -83,6 +85,37 @@ def _initialize(log_path, sendgrid_api_key):
     return skid_supervisor
 
 
+def _prep_dataframe_for_uploading(input_dataframe):
+    """Rename fields, convert lat/long to floats/nans, and convert to spatial dataframe
+
+    Any lat/long that don't cast to float (like DMS formatted coordinates) will be converted to 0,0 so that conversion
+    to spatially enabled data frame works.
+
+    Args:
+        all_worksheets_dataframe (pd.DataFrame): New data read in from a CSV. Includes Long and Lat fields.
+
+    Raises:
+        RuntimeError: If the conversion to spatially-enabled dataframe fails.
+
+    Returns:
+        pd.DataFrame.spatial: Cleaned spatially-enabled dataframe
+    """
+    #: Rename fields from live dataframe to match AGOL fields
+    input_dataframe.rename(columns=config.FIELDS, inplace=True)
+
+    #: Make sure Long and Lat are floats for spatial df conversion, switch nans to null island
+    input_dataframe['Long'] = pd.to_numeric(input_dataframe['Long'], errors='coerce').fillna(0)
+    input_dataframe['Lat'] = pd.to_numeric(input_dataframe['Lat'], errors='coerce').fillna(0)
+
+    #: Create a spatial dataframe using long/lat fields
+    try:
+        spatial_dataframe = pd.DataFrame.spatial.from_xy(input_dataframe, 'Long', 'Lat')
+    except Exception as error:
+        raise RuntimeError('Failed to create spatial dataframe') from error
+
+    return spatial_dataframe
+
+
 def process():
 
     #: Set up secrets, tempdir, supervisor, and logging
@@ -114,20 +147,19 @@ def process():
             module_logger.error('Unable to load Google Sheet into dataframe. Aborting.')
             sys.exit('Aborted due to error. Check logs for more info')
 
-        #: Rename fields from live dataframe to match AGOL fields
-        all_worksheets_dataframe.rename(columns=config.FIELDS, inplace=True)
+        try:
+            spatial_dataframe = _prep_dataframe_for_uploading(all_worksheets_dataframe)
+        except RuntimeError as error:
+            module_logger.error(error)
+            sys.exit('Aborted due to error. Check logs for more info')
 
         #: Update the feature service attribute values themselves
         module_logger.info('Updating AGOL Feature Service with data from Google Sheets...')
-        updater = FeatureServiceInlineUpdater(gis, all_worksheets_dataframe, config.JOIN_COLUMN)
+        updater = FeatureServiceInlineUpdater(gis, spatial_dataframe, config.JOIN_COLUMN)
         try:
-            number_of_rows_updated = updater.update_existing_features_in_hosted_feature_layer(
-                config.FEATURE_LAYER_ITEMID, list(config.FIELDS.values())
-            )
+            number_of_rows_updated = updater.upsert_new_data_in_hosted_feature_layer(config.FEATURE_LAYER_ITEMID)
         except RuntimeError as error:
             module_logger.error(error)
-            if 'Field mismatch between defined fields and either new or live data.' in error.args[0]:
-                module_logger.error('Field mismatch between data and specified fields. Aborting.')
             sys.exit('Aborted due to error. Check logs for more info')
 
         # : Use a GoogleDriveDownloader to download all the pictures from a single worksheet dataframe
@@ -136,7 +168,7 @@ def process():
         out_dir.mkdir(exist_ok=True)
         downloader = GoogleDriveDownloader(out_dir)
         downloaded_dataframe = downloader.download_attachments_from_dataframe(
-            all_worksheets_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN
+            spatial_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN
         )
 
         # : Create our attachment updater and update attachments using the attachments dataframe

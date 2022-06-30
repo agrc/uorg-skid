@@ -6,6 +6,7 @@
     "isort",
     "pylint",
     "pytest",
+    "uorg",
     "yapf"
   ],
   "coverage-gutters.highlightdark": "rgb(61, 153, 112, .05)",
