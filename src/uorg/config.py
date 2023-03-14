@@ -15,12 +15,13 @@ SENDGRID_SETTINGS = {  #: Settings for SendGridHandler
 LOG_LEVEL = logging.DEBUG
 LOG_FILE_NAME = 'log'
 
-FEATURE_LAYER_ITEMID = '4d179d4fc3d745dcad0e91bf4e3dc390'
+# FEATURE_LAYER_ITEMID = '0f3533d259134cbc916634365db8f07f'  #: Jake's testing
+FEATURE_LAYER_ITEMID = '9562dd49165642af86b915533632ce46'  #: Zach's production version
 JOIN_COLUMN = 'GrantID'
 ATTACHMENT_LINK_COLUMN = 'Picture'
 ATTACHMENT_PATH_COLUMN = 'full_file_path'
 FIELDS = {
-    'worksheet': 'Year',
+    'worksheet': 'GrantYear',
     'GrantID': 'GrantID',
     'Project Title': 'Project_Title',
     'Organization': 'Organization',

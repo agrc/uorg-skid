@@ -167,8 +167,9 @@ def process():
         out_dir = tempdir_path / 'pics'
         out_dir.mkdir(exist_ok=True)
         downloader = GoogleDriveDownloader(out_dir)
-        downloaded_dataframe = downloader.download_attachments_from_dataframe(
-            spatial_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN, config.ATTACHMENT_PATH_COLUMN
+        downloaded_dataframe = downloader.download_attachments_from_dataframe_using_api(
+            secrets.SERVICE_ACCOUNT_JSON, spatial_dataframe, config.ATTACHMENT_LINK_COLUMN, config.JOIN_COLUMN,
+            config.ATTACHMENT_PATH_COLUMN
         )
 
         # : Create our attachment updater and update attachments using the attachments dataframe
