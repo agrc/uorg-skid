@@ -47,7 +47,7 @@ setup(
             'pytest-cov>=3,<5',
             'pytest-instafail~=0.4',
             'pytest-isort>=2,<4',
-            'pytest-pylint~=0.18',
+            'pytest-pylint~=0.20',
             'pytest-watch~=4.2',
             'pytest>=6,<8',
             'yapf~=0.31',
