@@ -11,10 +11,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.8
+        python-version: 3.9
 
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        show-progress: false
 
     - name: Install module
       run: pip install .[tests]
