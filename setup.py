@@ -49,7 +49,7 @@ setup(
             'pytest-isort>=2,<4',
             # 'pytest-pylint~=0.20',  #: Causing problems for some reason, even with 0.21
             'pytest-watch~=4.2',
-            'pytest>=6,<8',
+            'pytest>=6,<9',
             'yapf~=0.31',
         ]
     },
