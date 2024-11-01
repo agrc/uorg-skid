@@ -44,7 +44,7 @@ setup(
         'tests': [
             'pylint-quotes~=0.2',
             'pylint>=2.11,<4.0',
-            'pytest-cov>=3,<6',
+            'pytest-cov>=3,<7',
             'pytest-instafail~=0.4',
             'pytest-isort>=2,<5',
             # 'pytest-pylint~=0.20',  #: Causing problems for some reason, even with 0.21
